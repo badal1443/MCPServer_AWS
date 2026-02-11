@@ -1,0 +1,21 @@
+# Exclude the agent script
+src/agent.py
+
+# Exclude environment files (Secrets shouldn't be in the image)
+.env
+.env.*
+
+# Exclude Python artifacts
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+.pytest_cache/
+
+# Exclude Git and IDE metadata
+.git/
+.gitignore
+.vscode/
+.idea/

@@ -1,3 +1,4 @@
+
 # These are some examples of commonly ignored file patterns.
 # You should customize this list as applicable to your project.
 # Learn more about .gitignore:
@@ -48,3 +49,25 @@ Thumbs.db
 *.mov
 *.wmv
 
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+# IDE files
+.vscode/
+.idea/ 
+
+# OS-generated files
+.DS_Store
+Thumbs.db 
+
+.env
+*.log
+logs/

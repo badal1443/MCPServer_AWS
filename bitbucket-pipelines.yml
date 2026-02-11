@@ -1,0 +1,29 @@
+# bitbucket-pipelines.yml
+image: python:3.12 # Base image for the pipeline runner
+
+pipelines:
+  branches:
+    main: # Only runs on pushes to the main branch
+      - step:
+          name: Build and Push to ECR
+          services:
+            - docker # Enables the Docker daemon
+          caches:
+            - docker
+          script:
+            # 1. Create a tag using the commit hash for versioning
+            - export TAG="commit-${BITBUCKET_COMMIT:0:7}"
+            - export FULL_IMAGE_NAME="${IMAGE_NAME}:${TAG}"
+            
+            # 2. Build the Docker image (using your optimized UV Dockerfile)
+            - docker build -t $FULL_IMAGE_NAME .
+            
+            # 3. Use the Atlassian Pipe to push to AWS ECR
+            # This pipe automatically handles 'aws ecr get-login-password'
+            - pipe: atlassian/aws-ecr-push-image:2.0.0
+              variables:
+                AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+                AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+                AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
+                IMAGE_NAME: $IMAGE_NAME
+                TAGS: "latest $TAG"

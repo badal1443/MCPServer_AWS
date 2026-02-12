@@ -27,4 +27,4 @@ pipelines:
                 AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
                 AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
                 IMAGE_NAME: $IMAGE_NAME
-                TAGS: "latest $TAG"
+                TAGS: "latest"

@@ -28,3 +28,14 @@ pipelines:
                 AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
                 IMAGE_NAME: $IMAGE_NAME
                 TAGS: "latest"
+      - step:
+          name: Deploy to Lambda
+          script:
+            - pipe: atlassian/aws-lambda-deploy:1.10.0
+              variables:
+                AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+                AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+                AWS_DEFAULT_REGION: $AWS_DEFAULT_REGION
+                FUNCTION_NAME: 'mymcpserver'
+                COMMAND: 'update' # CRITICAL: Tells the pipe to update the code
+                IMAGE_URI: '$AWS_REGISTRY_URL/$IMAGE_NAME:latest'

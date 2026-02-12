@@ -2,12 +2,13 @@ from mcp.server.fastmcp import FastMCP
 from tools.jira_service import JiraService
 import os
 import uvicorn
+from mcp.server.fastmcp.server import TransportSecuritySettings
 
 jira = JiraService()
 
 ## Initialize MCP server
 
-mcp = FastMCP("Release Manager MCP server",stateless_http=True)
+mcp = FastMCP("Release Manager MCP server",stateless_http=True,transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
 
 # Register your existing tools.
 

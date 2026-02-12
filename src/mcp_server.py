@@ -1,6 +1,7 @@
 from mcp.server.fastmcp import FastMCP
 from tools.jira_service import JiraService
 import os
+import uvicorn
 
 jira = JiraService()
 
@@ -31,6 +32,15 @@ def trigger_bitbucket_build(repo_name: str) -> dict:
 if __name__ == "__main__":
     # Use "stdio" for local dev (VS Code) or "sse" for AWS deployment
     #mcp.run(transport="stdio")
-    port = int(os.environ.get("PORT", 8080))
+    #port = int(os.environ.get("PORT", 8080))
     # CHANGE 127.0.0.1 to 0.0.0.0
-    mcp.run(transport="sse")
+    #mcp.run(transport="sse")
+    # 1. Get the underlying ASGI app from FastMCP
+    # For SSE transport, we use .sse_app()
+    app = mcp.sse_app()
+    
+    # 2. Get port from environment (Lambda/Docker default is often 8080)
+    port = int(os.environ.get("PORT", 8080))
+    
+    # 3. Run with Uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=port)

@@ -33,4 +33,4 @@ if __name__ == "__main__":
     #mcp.run(transport="stdio")
     port = int(os.environ.get("PORT", 8080))
     # CHANGE 127.0.0.1 to 0.0.0.0
-    mcp.run(transport="sse", host="0.0.0.0", port=port)
+    mcp.run(transport="sse")

@@ -31,4 +31,6 @@ def trigger_bitbucket_build(repo_name: str) -> dict:
 if __name__ == "__main__":
     # Use "stdio" for local dev (VS Code) or "sse" for AWS deployment
     #mcp.run(transport="stdio")
-    mcp.run(transport="sse")
+    port = int(os.environ.get("PORT", 8080))
+    # CHANGE 127.0.0.1 to 0.0.0.0
+    mcp.run(transport="sse", host="0.0.0.0", port=port)

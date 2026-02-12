@@ -13,7 +13,8 @@ pipelines:
           script:
             # 1. Create a tag using the commit hash for versioning
             - export TAG="commit-${BITBUCKET_COMMIT:0:7}"
-            - export FULL_IMAGE_NAME="${IMAGE_NAME}:${TAG}"
+            #- export FULL_IMAGE_NAME="${IMAGE_NAME}:${TAG}"
+            - export FULL_IMAGE_NAME="${IMAGE_NAME}"
             
             # 2. Build the Docker image (using your optimized UV Dockerfile)
             - docker build -t $FULL_IMAGE_NAME .

@@ -4,6 +4,8 @@ import os
 import uvicorn
 from mcp.server.fastmcp.server import TransportSecuritySettings
 from fastapi import FastAPI
+from starlette.applications import Starlette
+from starlette.routing import Mount
 
 jira = JiraService()
 
@@ -36,6 +38,14 @@ def trigger_bitbucket_build(repo_name: str) -> dict:
     # Insert your existing Bitbucket logic here
     return f"Pipeline started for {repo_name}."
 
+# Create the final app that Uvicorn will run
+# We mount the MCP sse_app at the root ('') to ensure /sse is top-level
+app = Starlette(
+    routes=[
+        Mount("/", app=mcp.sse_app())
+    ]
+)
+
 if __name__ == "__main__":
     # Use "stdio" for local dev (VS Code) or "sse" for AWS deployment
     #mcp.run(transport="stdio")
@@ -45,14 +55,22 @@ if __name__ == "__main__":
     # 1. Get the underlying ASGI app from FastMCP
     # For SSE transport, we use .sse_app()
     #app = mcp.sse_app()
-    main_app = FastAPI()
+   # main_app = FastAPI()
 
     # 3. Mount the MCP server to the /mcp path
     # This makes the routes: /mcp/sse and /mcp/messages
-    main_app.mount("/mcp", mcp.sse_app())
+    #main_app.mount("/mcp", mcp.sse_app())
     
     # 2. Get port from environment (Lambda/Docker default is often 8080)
-    port = int(os.environ.get("PORT", 8080))
+    #port = int(os.environ.get("PORT", 8080))
     
     # 3. Run with Uvicorn
-    uvicorn.run(main_app, host="0.0.0.0", port=port)
+    #uvicorn.run(main_app, host="0.0.0.0", port=port)
+
+    port = int(os.environ.get("PORT", 8080))
+    # Log the routes on startup so you can see them in CloudWatch
+    print("Registered Routes:")
+    for route in app.routes:
+        print(f" -> {route.path}")
+        
+    uvicorn.run(app, host="0.0.0.0", port=port)

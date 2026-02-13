@@ -38,7 +38,7 @@ if __name__ == "__main__":
     #mcp.run(transport="sse")
     # 1. Get the underlying ASGI app from FastMCP
     # For SSE transport, we use .sse_app()
-    app = mcp.http_app()
+    app = mcp.sse_app()
     
     # 2. Get port from environment (Lambda/Docker default is often 8080)
     port = int(os.environ.get("PORT", 8080))

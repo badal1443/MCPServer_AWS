@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from starlette.applications import Starlette
 from starlette.routing import Route
 from starlette.routing import Mount
+from starlette.routing import Route, Router
 
 jira = JiraService()
 
@@ -39,6 +40,7 @@ def trigger_bitbucket_build(repo_name: str) -> dict:
     # Insert your existing Bitbucket logic here
     return f"Pipeline started for {repo_name}."
 
+
 # Create the final app that Uvicorn will run
 # We mount the MCP sse_app at the root ('') to ensure /sse is top-level
 # 3. Explicitly define the routes for Starlette
@@ -47,8 +49,11 @@ app = Starlette(
     routes=[
         Route("/sse", endpoint=mcp.sse_app(), methods=["GET"]),
         Route("/messages", endpoint=mcp.sse_app(), methods=["POST"]),
-    ]
+    ],
+    redirect_slashes=False  # <--- CRITICAL: This stops the loop
 )
+
+app.router.redirect_slashes = False
 
 if __name__ == "__main__":
     # Use "stdio" for local dev (VS Code) or "sse" for AWS deployment

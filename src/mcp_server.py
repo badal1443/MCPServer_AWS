@@ -5,6 +5,7 @@ import uvicorn
 from mcp.server.fastmcp.server import TransportSecuritySettings
 from fastapi import FastAPI
 from starlette.applications import Starlette
+from starlette.routing import Route
 from starlette.routing import Mount
 
 jira = JiraService()
@@ -40,9 +41,12 @@ def trigger_bitbucket_build(repo_name: str) -> dict:
 
 # Create the final app that Uvicorn will run
 # We mount the MCP sse_app at the root ('') to ensure /sse is top-level
+# 3. Explicitly define the routes for Starlette
+# This ensures they are visible to Uvicorn and Lambda immediately
 app = Starlette(
     routes=[
-        Mount("/", app=mcp.sse_app())
+        Route("/sse", endpoint=mcp, methods=["GET"]),
+        Route("/messages", endpoint=mcp, methods=["POST"]),
     ]
 )
 
@@ -71,6 +75,6 @@ if __name__ == "__main__":
     # Log the routes on startup so you can see them in CloudWatch
     print("Registered Routes:")
     for route in app.routes:
-        print(f" -> {route.path}")
+        print(f" -> {route.path} [{route.methods}]")
         
     uvicorn.run(app, host="0.0.0.0", port=port)

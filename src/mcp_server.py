@@ -8,7 +8,7 @@ jira = JiraService()
 
 ## Initialize MCP server
 
-mcp = FastMCP("Release Manager MCP server",stateless_http=True,transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False))
+mcp = FastMCP("Release Manager MCP server",stateless_http=True,json_response=True)
 
 # Register your existing tools.
 

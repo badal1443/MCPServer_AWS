@@ -8,7 +8,11 @@ jira = JiraService()
 
 ## Initialize MCP server
 
-mcp = FastMCP("Release Manager MCP server",stateless_http=True,json_response=True)
+mcp = FastMCP(
+    "Release-Manager",
+    # This disables the Host header check that causes the 421 error
+    transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)
+)
 
 # Register your existing tools.
 

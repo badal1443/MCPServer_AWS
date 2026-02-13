@@ -45,8 +45,8 @@ def trigger_bitbucket_build(repo_name: str) -> dict:
 # This ensures they are visible to Uvicorn and Lambda immediately
 app = Starlette(
     routes=[
-        Route("/sse", endpoint=mcp, methods=["GET"]),
-        Route("/messages", endpoint=mcp, methods=["POST"]),
+        Route("/sse", endpoint=mcp.sse_app(), methods=["GET"]),
+        Route("/messages", endpoint=mcp.sse_app(), methods=["POST"]),
     ]
 )
 

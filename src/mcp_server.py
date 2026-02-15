@@ -5,6 +5,7 @@ from mcp.server.fastmcp.server import TransportSecuritySettings
 from starlette.applications import Starlette
 from starlette.routing import Route, Router
 from starlette.responses import JSONResponse
+from tools.jira_service import JiraService
 
 jira = JiraService()
 

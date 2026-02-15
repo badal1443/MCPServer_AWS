@@ -49,8 +49,7 @@ app = Starlette(
     routes=[
         Route("/sse", endpoint=mcp.sse_app(), methods=["GET"]),
         Route("/messages", endpoint=mcp.sse_app(), methods=["POST"]),
-    ],
-    redirect_slashes=False  # <--- CRITICAL: This stops the loop
+    ]
 )
 
 # 3. Force HTTPS scheme via middleware to stop the HTTP -> HTTPS loop

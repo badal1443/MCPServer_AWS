@@ -43,7 +43,7 @@ def trigger_bitbucket_build(repo_name: str) -> dict:
 # 3. Explicitly define the routes for Starlette
 # This ensures they are visible to Uvicorn and Lambda immediately
 #mcp_asgi_app = mcp.sse_app()
-mcp_asgi_app = mcp.http_app()
+mcp_asgi_app = mcp.streamable_http_app()
 router = Router(
     routes=[
         # SSE Routes

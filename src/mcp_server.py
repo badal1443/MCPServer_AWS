@@ -11,6 +11,7 @@ jira = JiraService()
 
 ## Initialize MCP server
 
+# 1. Initialize FastMCP with stateless_http=True
 mcp = FastMCP(
     "Release-Manager",
     stateless_http=True,
@@ -37,74 +38,29 @@ def trigger_bitbucket_build(repo_name: str) -> dict:
     # Insert your existing Bitbucket logic here
     return f"Pipeline started for {repo_name}."
 
+app = mcp.streamable_http_app()
 
-# Create the final app that Uvicorn will run
-# We mount the MCP sse_app at the root ('') to ensure /sse is top-level
-# 3. Explicitly define the routes for Starlette
-# This ensures they are visible to Uvicorn and Lambda immediately
-#mcp_asgi_app = mcp.sse_app()
-mcp_asgi_app = mcp.streamable_http_app()
-router = Router(
-    routes=[
-        # SSE Routes
-        Route("/sse", endpoint=mcp_asgi_app, methods=["GET"]),
-        Route("/sse/", endpoint=mcp_asgi_app, methods=["GET"]),
-        
-        # Message Routes (This is where your 404 is happening)
-        Route("/messages", endpoint=mcp_asgi_app, methods=["POST"]),
-        Route("/messages/", endpoint=mcp_asgi_app, methods=["POST"]),
-        
-        # Health Check
-        Route("/health", endpoint=lambda r: JSONResponse({"status": "ok"}), methods=["GET"]),
-        Mount("/mcp", app=mcp_asgi_app)
-    ],
-    redirect_slashes=False  # Keep this False to prevent the loop
-)
+# 3. Add your custom Health Check route directly to the MCP app's router
+@app.route("/health", methods=["GET"])
+async def health_check(request):
+    return JSONResponse({"status": "ok"})
 
-# 2. Final App Assembly
-app = Starlette()
-app.router = router
-
-# 3. Force HTTPS scheme via middleware to stop the HTTP -> HTTPS loop
+# 4. Add the HTTPS Middleware directly to the MCP app
 @app.middleware("http")
 async def trust_proxy_and_force_https(request, call_next):
-    # This tells Starlette: "Even if you see HTTP internally, treat it as HTTPS"
     request.scope["scheme"] = "https"
-    response = await call_next(request)
-    return response
-
-#app.router.redirect_slashes = False
+    return await call_next(request)
 
 if __name__ == "__main__":
-    # Use "stdio" for local dev (VS Code) or "sse" for AWS deployment
-    #mcp.run(transport="stdio")
-    #port = int(os.environ.get("PORT", 8080))
-    # CHANGE 127.0.0.1 to 0.0.0.0
-    #mcp.run(transport="sse")
-    # 1. Get the underlying ASGI app from FastMCP
-    # For SSE transport, we use .sse_app()
-    #app = mcp.sse_app()
-   # main_app = FastAPI()
-
-    # 3. Mount the MCP server to the /mcp path
-    # This makes the routes: /mcp/sse and /mcp/messages
-    #main_app.mount("/mcp", mcp.sse_app())
-    
-    # 2. Get port from environment (Lambda/Docker default is often 8080)
-    #port = int(os.environ.get("PORT", 8080))
-    
-    # 3. Run with Uvicorn
-    #uvicorn.run(main_app, host="0.0.0.0", port=port)
-
     port = int(os.environ.get("PORT", 8080))
-    print("--- STARTING MCP SERVER ---")
-    print(f"Registered Routes at root: /sse, /messages, /health")
+    print("--- STARTING MCP SERVER (Stateless HTTP) ---")
     
+    # We run the 'app' (which is the MCP streamable app) directly.
+    # The endpoint for the Inspector will now be the ROOT URL of your Lambda.
     uvicorn.run(
         app, 
         host="0.0.0.0", 
         port=port,
-        proxy_headers=True,           # Trusts X-Forwarded-Proto
-        forwarded_allow_ips="*",      # Trusts the AWS Lambda Proxy IP
-        log_level="info"
+        proxy_headers=True,
+        forwarded_allow_ips="*"
     )

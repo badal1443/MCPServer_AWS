@@ -45,12 +45,18 @@ def trigger_bitbucket_build(repo_name: str) -> dict:
 mcp_asgi_app = mcp.sse_app()
 router = Router(
     routes=[
+        # SSE Routes
         Route("/sse", endpoint=mcp_asgi_app, methods=["GET"]),
+        Route("/sse/", endpoint=mcp_asgi_app, methods=["GET"]),
+        
+        # Message Routes (This is where your 404 is happening)
         Route("/messages", endpoint=mcp_asgi_app, methods=["POST"]),
-        # Helpful for debugging: Browse to /health to check if server is up
+        Route("/messages/", endpoint=mcp_asgi_app, methods=["POST"]),
+        
+        # Health Check
         Route("/health", endpoint=lambda r: JSONResponse({"status": "ok"}), methods=["GET"]),
     ],
-    redirect_slashes=False 
+    redirect_slashes=False  # Keep this False to prevent the loop
 )
 
 # 2. Final App Assembly

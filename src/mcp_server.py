@@ -1,13 +1,10 @@
-from mcp.server.fastmcp import FastMCP
-from tools.jira_service import JiraService
 import os
 import uvicorn
+from mcp.server.fastmcp import FastMCP
 from mcp.server.fastmcp.server import TransportSecuritySettings
-from fastapi import FastAPI
 from starlette.applications import Starlette
-from starlette.routing import Route
-from starlette.routing import Mount
 from starlette.routing import Route, Router
+from starlette.responses import JSONResponse
 
 jira = JiraService()
 
@@ -16,7 +13,6 @@ jira = JiraService()
 mcp = FastMCP(
     "Release-Manager",
     stateless_http=True,
-    # This disables the Host header check that causes the 421 error
     transport_security=TransportSecuritySettings(enable_dns_rebinding_protection=False)
 )
 
@@ -45,16 +41,25 @@ def trigger_bitbucket_build(repo_name: str) -> dict:
 # We mount the MCP sse_app at the root ('') to ensure /sse is top-level
 # 3. Explicitly define the routes for Starlette
 # This ensures they are visible to Uvicorn and Lambda immediately
-app = Starlette(
+mcp_asgi_app = mcp.sse_app()
+router = Router(
     routes=[
-        Route("/sse", endpoint=mcp.sse_app(), methods=["GET"]),
-        Route("/messages", endpoint=mcp.sse_app(), methods=["POST"]),
-    ]
+        Route("/sse", endpoint=mcp_asgi_app, methods=["GET"]),
+        Route("/messages", endpoint=mcp_asgi_app, methods=["POST"]),
+        # Helpful for debugging: Browse to /health to check if server is up
+        Route("/health", endpoint=lambda r: JSONResponse({"status": "ok"}), methods=["GET"]),
+    ],
+    redirect_slashes=False 
 )
+
+# 2. Final App Assembly
+app = Starlette()
+app.router = router
 
 # 3. Force HTTPS scheme via middleware to stop the HTTP -> HTTPS loop
 @app.middleware("http")
-async def force_https_scheme(request, call_next):
+async def trust_proxy_and_force_https(request, call_next):
+    # This tells Starlette: "Even if you see HTTP internally, treat it as HTTPS"
     request.scope["scheme"] = "https"
     response = await call_next(request)
     return response
@@ -83,9 +88,14 @@ if __name__ == "__main__":
     #uvicorn.run(main_app, host="0.0.0.0", port=port)
 
     port = int(os.environ.get("PORT", 8080))
-    # Log the routes on startup so you can see them in CloudWatch
-    print("Registered Routes:")
-    for route in app.routes:
-        print(f" -> {route.path} [{route.methods}]")
-        
-    uvicorn.run(app, host="0.0.0.0", port=port,proxy_headers=True, forwarded_allow_ips="*")
+    print("--- STARTING MCP SERVER ---")
+    print(f"Registered Routes at root: /sse, /messages, /health")
+    
+    uvicorn.run(
+        app, 
+        host="0.0.0.0", 
+        port=port,
+        proxy_headers=True,           # Trusts X-Forwarded-Proto
+        forwarded_allow_ips="*",      # Trusts the AWS Lambda Proxy IP
+        log_level="info"
+    )

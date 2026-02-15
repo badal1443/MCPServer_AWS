@@ -53,7 +53,14 @@ app = Starlette(
     redirect_slashes=False  # <--- CRITICAL: This stops the loop
 )
 
-app.router.redirect_slashes = False
+# 3. Force HTTPS scheme via middleware to stop the HTTP -> HTTPS loop
+@app.middleware("http")
+async def force_https_scheme(request, call_next):
+    request.scope["scheme"] = "https"
+    response = await call_next(request)
+    return response
+
+#app.router.redirect_slashes = False
 
 if __name__ == "__main__":
     # Use "stdio" for local dev (VS Code) or "sse" for AWS deployment

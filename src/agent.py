@@ -1,29 +1,58 @@
 import asyncio
+import json
+import os
+from dotenv import load_dotenv
+
 from mcp import ClientSession
-from mcp.client.sse import sse_client  # Use the SSE client
+from mcp_proxy_for_aws.client import aws_iam_streamablehttp_client
 from google import genai
 from google.genai import types
-import json
-from dotenv import load_dotenv
-import os
 
 load_dotenv()
 
-# Helper to remove fields Gemini doesn't support
+LAMBDA_URL = os.getenv("LAMBDA_URL")
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+
 def clean_schema(schema):
     if not isinstance(schema, dict):
         return schema
-    # Gemini doesn't like '$schema' or 'additionalProperties' in tool definitions
+    # Gemini 2.0 is strict; it dislikes these keys in the tool declaration
     return {k: v for k, v in schema.items() if k not in ["$schema", "additionalProperties"]}
 
 async def run_agent():
-    # Connect to the ALREADY RUNNING server via its URL
-    async with sse_client("http://localhost:8000/sse") as (read, write):
+    # Correct 2026 AWS Transport
+    transport = aws_iam_streamablehttp_client(
+        endpoint=LAMBDA_URL,
+        aws_region=AWS_REGION,
+        aws_service="lambda"
+    )
+
+    print(f"Connecting to MCP Server at {LAMBDA_URL}...")
+    
+    # Note: Using the (read, write, _) 3-value unpacking for HTTP
+    async with transport as (read, write, get_session_id):
         async with ClientSession(read, write) as mcp_session:
-            await mcp_session.initialize()
+            try:
+                # 1. Increase timeout for Lambda cold starts
+                # 2. Use a specific timeout to distinguish between 'hang' and 'error'
+                await asyncio.wait_for(mcp_session.initialize(), timeout=60)
+                
+                # Verify we actually got a session ID from the Lambda
+                session_id = get_session_id()
+                if not session_id:
+                    print("⚠️ Warning: No mcp-session-id received. Lambda might be stateless.")
+                else:
+                    print(f"✅ Connected! Session ID: {session_id}")
+            except asyncio.TimeoutError:
+                print("❌ Error: Lambda took too long to respond (Cold Start timeout).")
+                return
+            except Exception as e:
+                print(f"❌ Initialization failed: {e}")
+                # This is where 'Session terminated' is caught
+                return
             mcp_tools = await mcp_session.list_tools()
 
-            # 2. Map MCP tools to Gemini format
+            # Mapping MCP tools to Gemini Function Declarations
             gemini_tools = [types.Tool(function_declarations=[
                 types.FunctionDeclaration(
                     name=tool.name,
@@ -32,73 +61,62 @@ async def run_agent():
                 ) for tool in mcp_tools.tools
             ])]
 
-            # Persistent history to keep context across different questions
+            print(f"key:::: {os.getenv("GEMINI_API_KEY")}")
+
+            client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
             messages = []
 
-            gemini_api_key=os.getenv("GEMINI_API_KEY")
-
-            client = genai.Client(api_key=gemini_api_key)
-
-            while True: # OUTER LOOP: For user interaction
+            while True:
                 user_input = input("\nYou: ")
-                if user_input.lower() in ["exit", "quit"]:
-                    break
+                if user_input.lower() in ["exit", "quit"]: break
                 
-                # Add user question to history
-                messages.append(types.Content(
-                    role="user", 
-                    parts=[types.Part.from_text(text=user_input)]
-                ))
+                messages.append(types.Content(role="user", parts=[types.Part.from_text(text=user_input)]))
 
-                # 3. Maintain conversation history for the "Loop"
-                #messages = [types.Content(role="user", parts=[types.Part.from_text(text="Transition Jira ticket with ticket ID REL-1 status to In Progress")])]
-                # The agent now uses the tools hosted at localhost:8000
+                # Loop to handle multiple tool calls in one turn (multi-turn reasoning)
                 while True:
-                    # Send the request to Gemini
                     response = client.models.generate_content(
-                        model="gemini-2.5-flash-lite", # Or gemini-2.5-flash-lite
+                        model="gemini-2.0-flash-lite", 
                         contents=messages,
                         config=types.GenerateContentConfig(tools=gemini_tools)
                     )
 
-                    # Add the AI's response (which might be a tool call) to history
+                    # Add Gemini's thought/tool call to history
                     messages.append(response.candidates[0].content)
-
-                    # 4. Check if Gemini wants to use a tool
-                    # (Look for parts that have a function_call)
+                    
+                    # Check if Gemini wants to call a tool
                     tool_calls = [p.function_call for p in response.candidates[0].content.parts if p.function_call]
 
                     if not tool_calls:
-                        # If no more tool calls, print the final answer and exit
-                        print(f"Agent Response: {response.text}")
+                        # If no more tools, print the final textual response
+                        if response.text:
+                            print(f"Agent: {response.text}")
                         break
 
-                    # 5. Execute the Tool Call on the MCP Server
+                    # Execute all requested tools
                     for fc in tool_calls:
-                        print(f"--- Calling MCP Tool: {fc.name} ---")
-                        
-                        # Forward the arguments to your actual Jira/MCP code
+                        print(f"--- [Action] Executing: {fc.name} ---")
+                        # MCP tool call
                         result = await mcp_session.call_tool(fc.name, fc.args)
-
-                        # 1. Extract the text content
+                        
+                        # MCP content is usually a list; we want the text content
                         raw_text = result.content[0].text if result.content else "{}"
                         
+                        # Tool responses to Gemini should ideally be dicts
                         try:
-                            # 2. Convert the string back into a Python dictionary
                             parsed_response = json.loads(raw_text)
-                        except json.JSONDecodeError:
-                            # Fallback if the tool returned plain text instead of JSON
+                        except:
                             parsed_response = {"output": raw_text}
-                        
 
-                        # Add the result back to the conversation
+                        # Append the result to the conversation
                         messages.append(types.Content(
                             role="tool", 
                             parts=[types.Part.from_function_response(
-                                name=fc.name,
+                                name=fc.name, 
                                 response=parsed_response
                             )]
                         ))
+                    
+                    # The loop continues to call generate_content again with the tool results
 
 if __name__ == "__main__":
     asyncio.run(run_agent())

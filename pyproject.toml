@@ -6,11 +6,13 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "atlassian-python-api>=4.0.7",
+    "aws-requests-auth>=0.4.3",
     "boto3>=1.42.39",
     "fastapi>=0.128.0",
     "fastmcp>=3.0.0b1",
     "google-genai>=1.47.0",
     "mcp>=1.26.0",
+    "mcp-proxy-for-aws>=1.1.4",
     "openpyxl>=3.1.5",
     "pandas>=2.3.3",
     "python-dotenv>=1.2.1",

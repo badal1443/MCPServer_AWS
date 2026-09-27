@@ -12,7 +12,7 @@ The server is designed to:
 - Run server-side logic in a serverless AWS environment.
 - Scale automatically through AWS Lambda.
 - Use Amazon Elastic Container Registry (Amazon ECR) to store the deployment image.
-- Automate testing, building, and deployment through Bitbucket Pipelines.
+- Automate building, and deployment through Bitbucket Pipelines.
 
 ## 2. Main Files
 
@@ -24,7 +24,7 @@ The main files in this project are:
 | `<lambda_handler_file>.py` | Contains the AWS Lambda handler or application entry point. |
 | `Dockerfile` | Defines the container image used to package the application for AWS Lambda. |
 | `requirements.txt` | Contains the Python dependencies required by the application. |
-| `bitbucket-pipelines.yaml` | Defines the CI/CD process for testing, building, and deploying the application. |
+| `bitbucket-pipelines.yaml` | Defines the CI/CD process for building, and deploying the application. |
 | `.env` | Contains local environment variables. This file must not be committed to the repository. |
 
 Update the table above with the actual filenames used in the project.
@@ -174,7 +174,6 @@ The deployment process is defined in `bitbucket-pipelines.yaml`.
 The pipeline generally performs the following steps:
 
 1. Install dependencies.
-2. Run automated tests.
 3. Build the Docker image.
 4. Authenticate with Amazon ECR.
 5. Push the image to Amazon ECR.
